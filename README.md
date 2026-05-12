@@ -49,6 +49,10 @@ Chronic disease patients often fail to maintain long-term treatment consistency 
 AdhereX AI aims to proactively identify early warning signs of treatment abandonment and support both patients and caregivers through intelligent intervention systems.
 
 ---
+Hackathon
+
+🌐 Live Demo:
+https://adherexai.netlify.app/
 
 ## 💻 GitHub Repository
 
