@@ -50,12 +50,6 @@ AdhereX AI aims to proactively identify early warning signs of treatment abandon
 
 ---
 
-## 🌐 Live Demo
-
-[Add Netlify Link Here]
-
----
-
 ## 💻 GitHub Repository
 
 https://github.com/PraveenC-13/TrinityForge-Hackathon
@@ -67,17 +61,3 @@ https://github.com/PraveenC-13/TrinityForge-Hackathon
 AAVISHKAR PRAVAH 2.0  
 24-Hour Hackathon Challenge
 
----
-
-## 📷 Project Status
-
-✅ Prototype Completed  
-✅ UI/UX Implemented  
-✅ Digital Twin Visualization Integrated  
-✅ Predictive Analytics Simulation Working
-
----
-
-## 📜 License
-
-This project was created for educational and hackathon purposes.
