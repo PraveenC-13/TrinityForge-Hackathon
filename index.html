@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>AdhereX AI — 3D Body Twin</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060910;--surface:#080c14;--panel:#0c1220;--panel2:#0e1528;
+  --border:#12213a;--border2:#1a2f50;
+  --cyan:#00E5FF;--red:#FF3B3B;--amber:#FFB020;--green:#00FFB2;--blue:#4488FF;
+  --text:#d8e4f0;--muted:#3a5272;--subtle:#5a7898;
+  --font:'Syne',sans-serif;--mono:'JetBrains Mono',monospace;
+}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden}
+::-webkit-scrollbar{width:2px;height:2px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+#app{display:flex;width:100vw;height:100vh;overflow:hidden}
+
+/* SIDEBAR */
+#sidebar{width:200px;min-width:200px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.logo-wrap{padding:14px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.logo-box{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#00E5FF,#0088AA);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#000;font-family:var(--mono)}
+.logo-name{font-size:14px;font-weight:800;letter-spacing:-0.5px}
+nav{padding:8px 0;flex:1}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);border-left:2px solid transparent;transition:all .2s;user-select:none}
+.nav-item:hover{color:var(--subtle)}
+.nav-item.active{color:var(--cyan);border-left-color:var(--cyan);background:rgba(0,229,255,.04)}
+.nav-icon{font-size:15px;width:18px;text-align:center}
+.nav-badge{margin-left:auto;min-width:16px;height:16px;border-radius:8px;background:var(--red);font-size:9px;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;padding:0 4px}
+
+.sidebar-bottom{padding:10px;border-top:1px solid var(--border)}
+.sc-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.stability-card{border-radius:10px;padding:11px;border:1px solid rgba(255,59,59,.2);background:rgba(255,59,59,.05)}
+.sc-score{font-size:30px;font-weight:800;font-family:var(--mono);line-height:1}
+.sc-denom{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.sc-status{font-size:11px;font-weight:600;margin-top:3px}
+.sc-change{font-size:10px;color:var(--muted);margin-top:2px}
+.engine-info{font-size:10px;color:var(--muted);margin-top:8px}
+
+/* MAIN */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+#topbar{padding:10px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface);flex-shrink:0}
+.page-title{font-size:16px;font-weight:800;letter-spacing:-0.5px}
+.page-sub{font-size:11px;color:var(--muted);margin-top:1px}
+.top-actions{display:flex;align-items:center;gap:10px}
+.engine-badge{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;border:1px solid rgba(0,255,178,.3);background:rgba(0,255,178,.04);font-size:11px;font-weight:600;color:var(--green)}
+.pulse{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulseAnim 2s ease-in-out infinite}
+@keyframes pulseAnim{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,255,178,.5)}50%{opacity:.7;box-shadow:0 0 0 5px rgba(0,255,178,0)}}
+.icon-btn{position:relative;width:32px;height:32px;border:1px solid var(--border2);border-radius:8px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--subtle);font-size:15px;transition:all .2s}
+.icon-btn .badge{position:absolute;top:-5px;right:-5px;width:15px;height:15px;border-radius:50%;background:var(--red);font-size:9px;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;border:1.5px solid var(--surface)}
+.user-pill{display:flex;align-items:center;gap:8px;cursor:pointer}
+.user-avatar{width:32px;height:32px;border-radius:50%;border:2px solid rgba(0,229,255,.3);background:linear-gradient(135deg,#4488FF,#7744CC);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff}
+.user-name{font-size:12px;font-weight:700}
+.user-id{font-size:10px;color:var(--muted)}
+
+/* CONTENT */
+#content{flex:1;overflow:hidden;display:grid;grid-template-columns:320px 1fr 280px;grid-template-rows:auto 1fr auto;gap:8px;padding:8px;background:var(--bg)}
+
+/* KPI ROW */
+.kpi-row{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.kpi{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.kpi:hover{border-color:var(--border2);transform:translateY(-1px)}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:10px 10px 0 0}
+.kpi.red::before{background:var(--red)}
+.kpi.amber::before{background:var(--amber)}
+.kpi.cyan::before{background:var(--cyan)}
+.kpi.green::before{background:var(--green)}
+.kpi-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.kpi-val{font-size:17px;font-weight:800;font-family:var(--mono)}
+.kpi.red .kpi-val{color:var(--red)}
+.kpi.amber .kpi-val{color:var(--amber)}
+.kpi.cyan .kpi-val{color:var(--cyan)}
+.kpi.green .kpi-val{color:var(--green)}
+
+/* 3D BODY PANEL */
+#bodyPanel{grid-row:2/3;grid-column:1/2;background:var(--panel);border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:column;overflow:hidden}
+.panel-hdr{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.panel-title{font-size:12px;font-weight:700;letter-spacing:.3px}
+.live-indicator{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--green);font-weight:600}
+.live-indicator::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulseAnim 2s infinite}
+
+#bodyCanvasWrap{flex:1;position:relative;overflow:hidden;min-height:0}
+#bodyCanvas{width:100%;height:100%;display:block}
+
+/* FILE LOADER OVERLAY */
+#fileOverlay{position:absolute;inset:0;background:rgba(6,9,16,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;z-index:10}
+.file-load-title{font-size:14px;font-weight:700;color:var(--text)}
+.file-load-sub{font-size:11px;color:var(--muted);text-align:center;max-width:240px;line-height:1.6}
+.file-load-list{font-size:11px;font-family:var(--mono);color:var(--cyan)}
+.file-load-list div{padding:2px 0;display:flex;align-items:center;gap:6px}
+.file-status{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.file-status.ok{background:var(--green)}
+.file-status.loading{background:var(--amber);animation:pulseAnim 1s infinite}
+#loadBtn{padding:9px 20px;background:var(--cyan);border:none;border-radius:8px;font-size:12px;font-weight:700;color:#000;cursor:pointer;font-family:var(--font)}
+#fileInput{display:none}
+.demo-btn{padding:7px 16px;background:transparent;border:1px solid var(--border2);border-radius:8px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;font-family:var(--font)}
+.demo-btn:hover{border-color:var(--subtle);color:var(--subtle)}
+
+/* ORGAN LABELS OVERLAY */
+#organLabels{position:absolute;inset:0;pointer-events:none;z-index:5}
+.organ-label{position:absolute;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer}
+.org-pill{display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;border:1px solid;font-size:10px;font-weight:700;font-family:var(--mono);transition:all .2s;backdrop-filter:blur(4px)}
+.org-pill:hover{transform:scale(1.1)}
+.org-dot{width:6px;height:6px;border-radius:50%}
+
+/* BODY LEGEND */
+.body-legend{padding:8px 14px;border-top:1px solid var(--border);display:flex;gap:12px;flex-shrink:0;flex-wrap:wrap}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);font-weight:600}
+.leg-dot{width:8px;height:8px;border-radius:50%}
+
+/* ORGAN DETAIL PANEL */
+#organDetail{position:absolute;bottom:60px;left:10px;right:10px;background:rgba(8,12,20,.95);border:1px solid var(--border2);border-radius:10px;padding:12px;z-index:6;display:none}
+.od-title{font-size:13px;font-weight:800;margin-bottom:4px}
+.od-status{font-size:11px;margin-bottom:8px}
+.od-metrics{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.od-metric{background:var(--panel);border-radius:6px;padding:6px 8px}
+.od-metric-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}
+.od-metric-val{font-size:16px;font-weight:800;font-family:var(--mono);margin-top:2px}
+.od-close{position:absolute;top:8px;right:10px;cursor:pointer;color:var(--muted);font-size:16px}
+.od-close:hover{color:var(--text)}
+
+/* CENTER COLUMN */
+#centerCol{grid-row:2/3;grid-column:2/3;display:flex;flex-direction:column;gap:8px;min-height:0}
+
+/* FORECAST */
+#forecastPanel{background:var(--panel);border:1px solid var(--border);border-radius:10px;flex:0 0 auto;overflow:hidden}
+.forecast-legend{display:flex;gap:12px;padding:5px 14px 3px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--subtle);font-weight:600}
+.legend-line{width:18px;height:2px;border-radius:1px}
+.forecast-chart-wrap{padding:4px 8px 6px}
+.risk-label{font-size:11px;font-weight:700;padding:5px 14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:5px}
+
+/* INPUT PANEL */
+#inputPanel{background:var(--panel);border:1px solid var(--border);border-radius:10px;flex:0 0 auto;overflow:hidden}
+.input-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:8px 12px}
+.inp-group{display:flex;flex-direction:column;gap:3px}
+.inp-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px}
+.inp-field{background:rgba(26,47,80,.5);border:1px solid var(--border2);border-radius:6px;padding:5px 9px;font-size:12px;color:var(--text);font-family:var(--mono);outline:none;transition:border-color .2s;width:100%}
+.inp-field:focus{border-color:rgba(0,229,255,.4)}
+.inp-row{display:flex;gap:6px;padding:0 12px 8px}
+.btn-compute{flex:1;padding:7px;background:var(--cyan);border:none;border-radius:7px;font-size:12px;font-weight:700;color:#000;cursor:pointer;font-family:var(--font);transition:all .2s}
+.btn-compute:hover{background:#00ccee}
+.btn-preset{padding:6px 10px;background:transparent;border:1px solid var(--border2);border-radius:7px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;font-family:var(--font);transition:all .2s}
+.btn-preset:hover{border-color:var(--subtle);color:var(--subtle)}
+
+/* RIGHT COLUMN */
+#rightCol{grid-row:2/3;grid-column:3/4;display:flex;flex-direction:column;gap:8px;min-height:0}
+
+/* VITALS */
+#vitalsPanel{background:var(--panel);border:1px solid var(--border);border-radius:10px;flex:0 0 auto}
+.vital-row{display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid rgba(18,33,58,.7)}
+.vital-row:last-child{border-bottom:none}
+.vital-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.vital-info{flex:1;min-width:0}
+.vital-name{font-size:10px;color:var(--muted);font-weight:600}
+.vital-change{font-size:11px;margin-top:1px;font-weight:700}
+.up{color:var(--green)}.dn{color:var(--red)}
+.vital-num{font-size:14px;font-weight:800;font-family:var(--mono)}
+.vital-unit{font-size:9px;color:var(--muted);font-weight:400}
+
+/* CHAT */
+#chatPanel{background:var(--panel);border:1px solid var(--border);border-radius:10px;flex:1;display:flex;flex-direction:column;min-height:0}
+.chat-messages{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:7px;min-height:0}
+.chat-msg{display:flex;align-items:flex-start;gap:6px}
+.chat-msg.user{flex-direction:row-reverse}
+.ai-avatar{width:24px;height:24px;border-radius:50%;flex-shrink:0;background:rgba(0,229,255,.15);border:1px solid rgba(0,229,255,.3);display:flex;align-items:center;justify-content:center;font-size:11px}
+.bubble{padding:7px 10px;font-size:12px;line-height:1.5;max-width:85%}
+.bubble-ai{background:rgba(0,229,255,.06);border:1px solid rgba(0,229,255,.14);border-radius:2px 9px 9px 9px;color:var(--text)}
+.bubble-user{background:rgba(68,136,255,.1);border:1px solid rgba(68,136,255,.2);border-radius:9px 2px 9px 9px;color:var(--text)}
+.bubble-time{font-size:10px;color:var(--muted);margin-top:2px}
+.chat-input-area{padding:7px 9px;border-top:1px solid var(--border);display:flex;gap:6px;align-items:center;flex-shrink:0}
+.chat-input{flex:1;background:rgba(26,47,80,.4);border:1px solid var(--border2);border-radius:7px;padding:7px 11px;font-size:12px;color:var(--text);font-family:var(--font);outline:none;transition:border-color .2s}
+.chat-input:focus{border-color:rgba(0,229,255,.4)}
+.chat-input::placeholder{color:var(--muted)}
+.send-btn{width:30px;height:30px;border-radius:7px;background:var(--cyan);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#000;font-size:13px;flex-shrink:0}
+
+/* BOTTOM PANELS */
+#bottomRow{grid-column:1/-1;display:grid;grid-template-columns:320px 1fr;gap:8px;max-height:110px}
+#interventionPanel{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.intervention-body{padding:8px 14px;display:flex;align-items:center;gap:12px}
+.int-icon{width:38px;height:38px;border-radius:10px;background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.int-title{font-size:12px;font-weight:700}
+.int-sub{font-size:11px;color:var(--muted);line-height:1.4;margin-top:2px}
+.outcome-list{display:flex;flex-direction:column;gap:2px;margin-left:8px}
+.outcome-item{font-size:11px;color:var(--subtle);font-weight:600}
+.outcome-check{color:var(--green)}
+.int-actions{display:flex;flex-direction:column;gap:5px;margin-left:auto;flex-shrink:0}
+.btn-adopt{padding:6px 16px;background:var(--cyan);border:none;border-radius:7px;font-size:12px;font-weight:700;color:#000;cursor:pointer;font-family:var(--font);transition:all .2s;white-space:nowrap}
+.btn-adopt:hover{background:#00ccee}
+.btn-later{padding:5px 16px;background:transparent;border:1px solid var(--border2);border-radius:7px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;font-family:var(--font);white-space:nowrap}
+
+#alertsPanel{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.alerts-table{width:100%;border-collapse:collapse;font-size:11px}
+.alerts-table th{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;padding:5px 10px;text-align:left;border-bottom:1px solid var(--border);font-weight:600}
+.alerts-table td{padding:5px 10px;color:var(--subtle);border-bottom:1px solid rgba(18,33,58,.5)}
+.alerts-table tr:last-child td{border-bottom:none}
+.alert-badge{font-size:10px;font-weight:700}
+.alert-badge.critical{color:var(--red)}
+.alert-badge.warning{color:var(--amber)}
+.s-sent{color:var(--green);font-weight:700}
+.s-ack{color:var(--cyan);font-weight:700}
+
+/* TYPING */
+.typing{display:flex;align-items:center;gap:3px;padding:2px 0}
+.typing span{width:5px;height:5px;border-radius:50%;background:var(--cyan);animation:typeBounce .8s ease-in-out infinite}
+.typing span:nth-child(2){animation-delay:.16s}
+.typing span:nth-child(3){animation-delay:.32s}
+@keyframes typeBounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-5px);opacity:1}}
+
+/* MODAL */
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
+#modal.open{display:flex}
+.modal-box{background:var(--panel2);border:1px solid var(--border2);border-radius:14px;padding:22px;max-width:440px;width:90%;box-shadow:0 30px 80px rgba(0,0,0,.7)}
+.modal-title{font-size:15px;font-weight:800;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.modal-close{margin-left:auto;cursor:pointer;color:var(--muted);font-size:18px}
+.modal-close:hover{color:var(--text)}
+.modal-body{font-size:13px;color:var(--subtle);line-height:1.8}
+
+/* ORGAN GLOW RING */
+@keyframes organRing{0%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.08)}100%{opacity:1;transform:scale(1)}}
+</style>
+</head>
+<body>
+
+<div id="modal">
+  <div class="modal-box">
+    <div class="modal-title"><span id="modalIcon"></span><span id="modalTitle"></span><span class="modal-close" onclick="closeModal()">✕</span></div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<div id="app">
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div class="logo-wrap">
+    <div class="logo-box">X</div>
+    <div class="logo-name">AdhereX AI</div>
+  </div>
+  <nav>
+    <div class="nav-item active"><span class="nav-icon">⊞</span>Dashboard</div>
+    <div class="nav-item" onclick="openModal('Vitality Logs','〜','Full vitality log history with 90-day trends, sleep architecture breakdown, and activity heatmaps.')"><span class="nav-icon">〜</span>Vitality Logs</div>
+    <div class="nav-item" onclick="focusChatInput()"><span class="nav-icon">◎</span>AI Chat</div>
+    <div class="nav-item" onclick="openModal('Smart Reminders','🔔','Active reminders:\n\n⏰ 8:30 PM — Metformin 500mg (SUGGESTED)\n⏰ 7:00 AM — Morning check-in\n⏰ 10:00 PM — Sleep wind-down\n\nMissed: Evening dose (2 days)')"><span class="nav-icon">🔔</span>Smart Reminders<div class="nav-badge">2</div></div>
+    <div class="nav-item" onclick="openModal('Caregiver Alerts','👥','Primary caregiver: Jane Johnson\nPhysician: Dr. Patel\n\nRecent: 2 alerts sent this week, 1 acknowledged.')"><span class="nav-icon">👥</span>Caregiver Alerts</div>
+    <div class="nav-item" onclick="openModal('Treatment Plan','≡','Medication: Metformin 500mg — Twice daily\nCompliance target: 85%+\nCurrent: 72% (below target)\n\nNext appointment: June 3, 2025')"><span class="nav-icon">≡</span>Treatment Plan</div>
+    <div class="nav-item" onclick="openModal('Settings','⚙','Notifications: ON\nCaregiver alerts: ON\nAI Chat: ON\nData sharing (research): OFF\n\nPrivacy: HIPAA compliant.')"><span class="nav-icon">⚙</span>Settings</div>
+  </nav>
+  <div class="sidebar-bottom">
+    <div class="sc-label">Overall Stability Score</div>
+    <div class="stability-card" id="scCard">
+      <div style="display:flex;align-items:baseline;gap:3px">
+        <div class="sc-score" id="scScore" style="color:var(--red)">68</div>
+        <div class="sc-denom">/100</div>
+      </div>
+      <div class="sc-status" id="scStatus" style="color:var(--amber)">⚠ At Risk</div>
+      <div class="sc-change" id="scChange">↓ 14 pts from last 7 days</div>
+    </div>
+    <div class="engine-info">⏱ Engine: <span id="engineTime">just now</span></div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="topbar">
+    <div>
+      <div class="page-title">Behavioral Persistence Dashboard</div>
+      <div class="page-sub">3D Digital Twin with real-time biometric organ mapping</div>
+    </div>
+    <div class="top-actions">
+      <div class="engine-badge"><div class="pulse"></div>AI Engine Active</div>
+      <button class="icon-btn" onclick="openModal('Notifications','🔔','3 active alerts:\n• Stability dropped below 70\n• Medication missed — 2nd consecutive day\n• Sleep quality below 50%\n\nAll forwarded to caregiver.')">🔔<span class="badge">3</span></button>
+      <div class="user-pill" onclick="openModal('Profile','👤','Patient: Sarah Johnson\nID: ADX-7821 | Age: 34\nDiagnosis: Type 2 Diabetes\nPhysician: Dr. Patel\nCaregiver: Jane Johnson\n\nMedication: Metformin 500mg — Twice daily')">
+        <div class="user-avatar">SJ</div>
+        <div><div class="user-name">Sarah Johnson</div><div class="user-id">ADX-7821</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="content">
+    <!-- KPI ROW -->
+    <div class="kpi-row">
+      <div class="kpi red"><div class="kpi-label">Health Stability</div><div class="kpi-val" id="kpiHealth">At Risk</div></div>
+      <div class="kpi amber"><div class="kpi-label">Risk of Abandonment</div><div class="kpi-val" id="kpiRisk">High (72%)</div></div>
+      <div class="kpi cyan"><div class="kpi-label">Prediction Window</div><div class="kpi-val">14 Days</div></div>
+      <div class="kpi green"><div class="kpi-label">Intervention Window</div><div class="kpi-val" id="kpiIntv">Active</div></div>
+    </div>
+
+    <!-- 3D BODY PANEL -->
+    <div id="bodyPanel">
+      <div class="panel-hdr">
+        <span class="panel-title">3D Anatomical Digital Twin</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="live-indicator">Live</span>
+          <span style="font-size:10px;color:var(--muted);cursor:pointer" onclick="resetCamera()">↺ Reset</span>
+        </div>
+      </div>
+      <div id="bodyCanvasWrap">
+        <canvas id="bodyCanvas"></canvas>
+        <div id="organLabels"></div>
+
+        <!-- FILE LOADER OVERLAY -->
+        <div id="fileOverlay">
+          <div style="font-size:24px">🫀</div>
+          <div class="file-load-title">Load your 3D Body Models</div>
+          <div class="file-load-sub">Select your GLB files to render the anatomical digital twin</div>
+          <div class="file-load-list" id="fileStatusList">
+            <div><span class="file-status" id="fs-body"></span>body.glb</div>
+            <div><span class="file-status" id="fs-heart"></span>heart.glb</div>
+            <div><span class="file-status" id="fs-kidney"></span>kidney.glb</div>
+            <div><span class="file-status" id="fs-pancreas"></span>pancreas.glb</div>
+          </div>
+          <button id="loadBtn" onclick="document.getElementById('fileInput').click()">📁 Select GLB Files</button>
+          <input type="file" id="fileInput" accept=".glb" multiple onchange="loadGLBFiles(event)"/>
+          <button class="demo-btn" onclick="loadDemoMode()">▶ Demo Mode (No Files)</button>
+        </div>
+
+        <!-- ORGAN DETAIL -->
+        <div id="organDetail">
+          <span class="od-close" onclick="document.getElementById('organDetail').style.display='none'">✕</span>
+          <div class="od-title" id="odTitle">Heart</div>
+          <div class="od-status" id="odStatus">⚠ Warning</div>
+          <div class="od-metrics" id="odMetrics"></div>
+        </div>
+      </div>
+      <div class="body-legend">
+        <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>Optimal</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--amber)"></div>Warning</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--red)"></div>Critical</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--cyan)"></div>Monitored</div>
+      </div>
+    </div>
+
+    <!-- CENTER COLUMN -->
+    <div id="centerCol">
+      <!-- FORECAST -->
+      <div id="forecastPanel">
+        <div class="panel-hdr">
+          <span class="panel-title">Predictive Burnout Forecast</span>
+          <span style="font-size:10px;color:var(--muted);border:1px solid var(--border2);padding:2px 7px;border-radius:5px;cursor:pointer" onclick="toggleWindow()">14 Days ▾</span>
+        </div>
+        <div class="forecast-legend">
+          <div class="legend-item"><div class="legend-line" style="background:var(--red)"></div>Current Drift</div>
+          <div class="legend-item"><div class="legend-line" style="background:var(--cyan)"></div>Optimized Path</div>
+        </div>
+        <div class="forecast-chart-wrap"><canvas id="forecastChart" height="110"></canvas></div>
+        <div class="risk-label" id="riskLabel" style="color:var(--red)">⚠ High Risk of Abandonment in 14 Days</div>
+      </div>
+
+      <!-- INPUT PANEL -->
+      <div id="inputPanel">
+        <div class="panel-hdr"><span class="panel-title">Patient Metric Input</span><span style="font-size:10px;color:var(--muted)">Live simulation feed</span></div>
+        <div class="input-grid">
+          <div class="inp-group"><div class="inp-label">Sleep Quality %</div><input class="inp-field" id="inp_sleep" type="number" min="0" max="100" value="62"/></div>
+          <div class="inp-group"><div class="inp-label">Activity (steps)</div><input class="inp-field" id="inp_steps" type="number" value="4300"/></div>
+          <div class="inp-group"><div class="inp-label">Anxiety Level %</div><input class="inp-field" id="inp_anxiety" type="number" value="55"/></div>
+          <div class="inp-group"><div class="inp-label">Mood Score %</div><input class="inp-field" id="inp_mood" type="number" value="48"/></div>
+          <div class="inp-group"><div class="inp-label">Medication Adh. %</div><input class="inp-field" id="inp_med" type="number" value="72"/></div>
+          <div class="inp-group"><div class="inp-label">Heart Rate (bpm)</div><input class="inp-field" id="inp_hr" type="number" value="78"/></div>
+        </div>
+        <div class="inp-row">
+          <button class="btn-compute" onclick="computeFromInputs()">🔄 Compute Score</button>
+          <button class="btn-preset" onclick="loadPreset('optimal')">🟢 Optimal</button>
+          <button class="btn-preset" onclick="loadPreset('atrisk')">🟡 Risk</button>
+          <button class="btn-preset" onclick="loadPreset('critical')">🔴 Critical</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div id="rightCol">
+      <!-- VITALS -->
+      <div id="vitalsPanel">
+        <div class="panel-hdr"><span class="panel-title">Patient Vitality Logs</span><span class="live-indicator">Live</span></div>
+        <div id="vitalsContainer"></div>
+      </div>
+
+      <!-- CHAT -->a
+      <div id="chatPanel">
+        <div class="panel-hdr"><span class="panel-title">Emotion-Aware AI Chat</span><span class="live-indicator">Online</span></div>
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-input-area">
+          <input class="chat-input" id="chatInput" placeholder="Ask about your health..." onkeydown="if(event.key==='Enter')sendChat()"/>
+          <button class="send-btn" onclick="sendChat()">➤</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM ROW -->
+    <div id="bottomRow">
+      <div id="interventionPanel">
+        <div class="panel-hdr"><span class="panel-title">✦ Recommended Intervention</span></div>
+        <div class="intervention-body">
+          <div class="int-icon">⏰</div>
+          <div>
+            <div class="int-title">Adaptive Medication Timing</div>
+            <div class="int-sub">Shift Metformin to 8:30 PM. Aligns with your energy patterns.</div>
+          </div>
+          <div class="outcome-list">
+            <div class="outcome-item"><span class="outcome-check">✓</span> Better sleep quality</div>
+            <div class="outcome-item"><span class="outcome-check">✓</span> Improved adherence</div>
+          </div>
+          <div class="int-actions">
+            <button class="btn-adopt" onclick="adoptStrategy()">Adopt Strategy</button>
+            <button class="btn-later">Not Now</button>
+          </div>
+        </div>
+      </div>
+      <div id="alertsPanel">
+        <div class="panel-hdr"><span class="panel-title">Caregiver Alert Log</span></div>
+        <div style="padding:0 4px;overflow-x:auto">
+          <table class="alerts-table"><thead><tr><th>Time</th><th>Alert</th><th>Recipient</th><th>Status</th><th>Notes</th></tr></thead>
+          <tbody id="alertsBody"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+// ================================================================
+// GLTF LOADER (minimal inline implementation)
+// ================================================================
+// We'll use THREE.js r128 with a fetch-based GLTFLoader approach
+// Since we can't import modules, we'll use the CDN version
+
+// Load GLTFLoader from CDN
+const script = document.createElement('script');
+script.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
+document.head.appendChild(script);
+
+// ================================================================
+// STATE
+// ================================================================
+let score = 68;
+let windowDays = 14;
+let forecastChartObj = null;
+let currentMetrics = { sleep:62, steps:4300, anxiety:55, mood:48, med:72, hr:78 };
+let glbScene, glbCamera, glbRenderer, glbAnimId;
+let bodyModel = null, organModels = {};
+let organMeshMap = {}; // organKey -> THREE.Mesh/Group
+let demoMode = false;
+let glbTime = 0;
+let isDragging = false, lastMouseX = 0, lastMouseY = 0;
+let cameraTheta = 0, cameraPhi = 0.15, cameraRadius = 3.5;
+
+const PRESETS = {
+  optimal:  { sleep:88, steps:9200, anxiety:18, mood:85, med:96, hr:65 },
+  atrisk:   { sleep:62, steps:4300, anxiety:55, mood:48, med:72, hr:78 },
+  critical: { sleep:28, steps:1100, anxiety:82, mood:22, med:35, hr:91 },
+};
+
+const ORGAN_CONFIGS = {
+  heart:    { label:'Heart',    key:'hr',      metric:'Heart Rate', unit:'bpm', goodRange:[58,75], warnRange:[75,88], glyph:'❤' },
+  kidney:   { label:'Kidney',   key:'med',     metric:'Med. Adherence', unit:'%', goodRange:[80,100], warnRange:[60,80], glyph:'🫘' },
+  pancreas: { label:'Pancreas', key:'sleep',   metric:'Sleep Quality', unit:'%', goodRange:[70,100], warnRange:[50,70], glyph:'🔶' },
+  brain:    { label:'Brain',    key:'mood',    metric:'Mood Score', unit:'%', goodRange:[70,100], warnRange:[45,70], glyph:'🧠' },
+  liver:    { label:'Liver',    key:'med',     metric:'Med. Adherence', unit:'%', goodRange:[80,100], warnRange:[60,80], glyph:'🟤' },
+};
+
+function getOrganStatus(organKey, metrics) {
+  const cfg = ORGAN_CONFIGS[organKey];
+  if (!cfg) return 'ok';
+  const val = metrics[cfg.key];
+  if (cfg.key === 'hr') {
+    if (val >= cfg.goodRange[0] && val <= cfg.goodRange[1]) return 'ok';
+    if (val <= cfg.warnRange[1]) return 'warn';
+    return 'crit';
+  }
+  if (val >= cfg.goodRange[0]) return 'ok';
+  if (val >= cfg.warnRange[0]) return 'warn';
+  return 'crit';
+}
+
+function getStatusColor(status) {
+  if (status === 'ok') return '#00FFB2';
+  if (status === 'warn') return '#FFB020';
+  return '#FF3B3B';
+}
+
+function getStatusHex(status) {
+  if (status === 'ok') return 0x00FFB2;
+  if (status === 'warn') return 0xFFB020;
+  return 0xFF3B3B;
+}
+
+// ================================================================
+// THREE.JS SCENE
+// ================================================================
+function initGLBScene() {
+  const canvas = document.getElementById('bodyCanvas');
+  const wrap = document.getElementById('bodyCanvasWrap');
+
+  glbRenderer = new THREE.WebGLRenderer({ canvas, alpha:true, antialias:true });
+  glbRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  glbRenderer.shadowMap.enabled = true;
+  glbRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  glbRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+  glbRenderer.toneMappingExposure = 1.2;
+  glbRenderer.setClearColor(0x000000, 0);
+
+  glbScene = new THREE.Scene();
+  glbScene.fog = new THREE.FogExp2(0x060910, 0.08);
+
+  // Camera
+  glbCamera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
+  updateCameraPosition();
+
+  // Lighting
+  const ambient = new THREE.AmbientLight(0x050d1a, 2);
+  glbScene.add(ambient);
+
+  const keyLight = new THREE.DirectionalLight(0x00AADD, 3);
+  keyLight.position.set(2, 4, 3);
+  keyLight.castShadow = true;
+  glbScene.add(keyLight);
+
+  const fillLight = new THREE.DirectionalLight(0x0044AA, 1);
+  fillLight.position.set(-3, 2, -2);
+  glbScene.add(fillLight);
+
+  const rimLight = new THREE.PointLight(0x00E5FF, 2, 8);
+  rimLight.position.set(0, 3, -2);
+  glbScene.add(rimLight);
+
+  // Floor grid
+  const gridHelper = new THREE.GridHelper(4, 20, 0x00E5FF, 0x112233);
+  gridHelper.position.y = -1.5;
+  gridHelper.material.opacity = 0.15;
+  gridHelper.material.transparent = true;
+  glbScene.add(gridHelper);
+
+  // Floor ring
+  const ringGeo = new THREE.RingGeometry(0.4, 0.8, 64);
+  const ringMat = new THREE.MeshBasicMaterial({ color:0x00E5FF, transparent:true, opacity:0.12, side:THREE.DoubleSide });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = -Math.PI/2;
+  ring.position.y = -1.49;
+  glbScene.add(ring);
+
+  // Mouse drag for orbit
+  canvas.addEventListener('mousedown', e => { isDragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY; });
+  canvas.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    const dx = e.clientX - lastMouseX;
+    const dy = e.clientY - lastMouseY;
+    cameraTheta -= dx * 0.006;
+    cameraPhi = Math.max(-0.3, Math.min(0.8, cameraPhi + dy * 0.005));
+    lastMouseX = e.clientX; lastMouseY = e.clientY;
+    updateCameraPosition();
+  });
+  canvas.addEventListener('mouseup', () => isDragging = false);
+  canvas.addEventListener('mouseleave', () => isDragging = false);
+  canvas.addEventListener('wheel', e => {
+    cameraRadius = Math.max(1.5, Math.min(6, cameraRadius + e.deltaY * 0.005));
+    updateCameraPosition();
+  });
+
+  resizeGLB();
+  animateGLB();
+}
+
+function updateCameraPosition() {
+  if (!glbCamera) return;
+  glbCamera.position.x = cameraRadius * Math.sin(cameraTheta) * Math.cos(cameraPhi);
+  glbCamera.position.y = cameraRadius * Math.sin(cameraPhi) + 0.3;
+  glbCamera.position.z = cameraRadius * Math.cos(cameraTheta) * Math.cos(cameraPhi);
+  glbCamera.lookAt(0, 0.2, 0);
+}
+
+function resetCamera() {
+  cameraTheta = 0; cameraPhi = 0.15; cameraRadius = 3.5;
+  updateCameraPosition();
+}
+
+function resizeGLB() {
+  const wrap = document.getElementById('bodyCanvasWrap');
+  if (!wrap || !glbRenderer || !glbCamera) return;
+  const w = wrap.offsetWidth || 320;
+  const h = wrap.offsetHeight || 400;
+  glbRenderer.setSize(w, h);
+  glbCamera.aspect = w / h;
+  glbCamera.updateProjectionMatrix();
+}
+
+function animateGLB() {
+  glbAnimId = requestAnimationFrame(animateGLB);
+  glbTime += 0.016;
+
+  if (bodyModel) {
+    bodyModel.rotation.y = Math.sin(glbTime * 0.15) * 0.04;
+    bodyModel.position.y = Math.sin(glbTime * 0.8) * 0.012;
+  }
+
+  // Pulse organ glows
+  for (const [key, mesh] of Object.entries(organMeshMap)) {
+    if (!mesh) continue;
+    const status = getOrganStatus(key, currentMetrics);
+    const col = getStatusHex(status);
+    const pulse = status === 'crit'
+      ? 0.6 + Math.sin(glbTime * 3.5) * 0.4
+      : status === 'warn'
+      ? 0.5 + Math.sin(glbTime * 1.8) * 0.3
+      : 0.4 + Math.sin(glbTime * 0.9) * 0.15;
+    mesh.traverse(obj => {
+      if (obj.isMesh && obj.material) {
+        obj.material.emissive = new THREE.Color(col);
+        obj.material.emissiveIntensity = pulse;
+      }
+    });
+  }
+
+  glbRenderer.render(glbScene, glbCamera);
+}
+
+// ================================================================
+// GLB FILE LOADING
+// ================================================================
+function loadGLBFiles(event) {
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
+
+  // Wait for GLTFLoader to be available
+  const tryLoad = () => {
+    if (!THREE.GLTFLoader) { setTimeout(tryLoad, 100); return; }
+    processFiles(files);
+  };
+  tryLoad();
+}
+
+function processFiles(files) {
+  const fileMap = {};
+  files.forEach(f => { fileMap[f.name.toLowerCase()] = f; });
+
+  const needed = ['body.glb', 'heart.glb', 'kidney.glb', 'pancreas.glb'];
+  let loaded = 0;
+
+  needed.forEach(name => {
+    const key = name.replace('.glb', '');
+    const file = fileMap[name];
+    if (!file) return;
+
+    const statusEl = document.getElementById('fs-' + key);
+    if (statusEl) statusEl.className = 'file-status loading';
+
+    const url = URL.createObjectURL(file);
+    const loader = new THREE.GLTFLoader();
+
+    loader.load(url, (gltf) => {
+      URL.revokeObjectURL(url);
+      if (statusEl) statusEl.className = 'file-status ok';
+
+      if (key === 'body') {
+        setupBodyModel(gltf.scene);
+      } else {
+        setupOrganModel(key, gltf.scene);
+      }
+
+      loaded++;
+      checkAllLoaded(loaded, needed.filter(n => fileMap[n]).length);
+    }, undefined, (err) => {
+      console.error('GLB load error:', err);
+      if (statusEl) statusEl.className = 'file-status';
+    });
+  });
+}
+
+function setupBodyModel(scene) {
+  if (bodyModel) glbScene.remove(bodyModel);
+  bodyModel = scene;
+
+  // Auto-scale and center
+  const box = new THREE.Box3().setFromObject(bodyModel);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const scale = 2.4 / maxDim;
+
+  bodyModel.scale.setScalar(scale);
+  bodyModel.position.set(-center.x * scale, -center.y * scale + 0.1, -center.z * scale);
+
+  // Apply base material — semi-transparent, dark blue
+  bodyModel.traverse(obj => {
+    if (obj.isMesh) {
+      obj.castShadow = true;
+      obj.receiveShadow = true;
+      const existingMat = obj.material;
+      obj.material = new THREE.MeshStandardMaterial({
+        color: 0x0a1e3d,
+        emissive: 0x001133,
+        emissiveIntensity: 0.2,
+        transparent: true,
+        opacity: 0.82,
+        roughness: 0.3,
+        metalness: 0.5,
+        side: THREE.DoubleSide,
+      });
+    }
+  });
+
+  glbScene.add(bodyModel);
+}
+
+function setupOrganModel(key, scene) {
+  if (organModels[key]) glbScene.remove(organModels[key]);
+  organModels[key] = scene;
+
+ const ORGAN_POSITIONS = {
+    // Heart: Reduced scale to 0.45 to clear space for lower organs
+    heart:    { x: 0.08,  y: 1.85, z: 0.17, scale: 0.45 },
+    
+    // Pancreas: Reduced scale to 0.35 and tucked slightly higher
+    pancreas: { x: -0.02, y: 1.65, z: 0.20, scale: 0.35 },
+    
+    // Kidney: Increased Z and moved X outward to ensure it is visible
+    kidney:   { x: -0.03, y: 1.48, z: 0.22, scale: 0.55 },
+};
+
+  const pos = ORGAN_POSITIONS[key] || { x:0, y:0, z:0, scale:0.6 };
+
+  // Auto-scale organ
+  const box = new THREE.Box3().setFromObject(scene);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const scale = (pos.scale * 0.5) / maxDim;
+
+  scene.scale.setScalar(scale);
+  scene.position.set(
+    pos.x - center.x * scale,
+    pos.y - center.y * scale,
+    pos.z - center.z * scale
+  );
+
+  // Apply emissive organ material
+  const status = getOrganStatus(key, currentMetrics);
+  const col = getStatusHex(status);
+
+  scene.traverse(obj => {
+    if (obj.isMesh) {
+      obj.castShadow = true;
+      obj.material = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(col).multiplyScalar(0.25),
+        emissive: new THREE.Color(col),
+        emissiveIntensity: 0.7,
+        transparent: true,
+        opacity: 0.92,
+        roughness: 0.2,
+        metalness: 0.4,
+      });
+    }
+  });
+
+  organMeshMap[key] = scene;
+  glbScene.add(scene);
+}
+
+function checkAllLoaded(loaded, total) {
+  if (loaded >= total) {
+    document.getElementById('fileOverlay').style.display = 'none';
+    updateOrganColors();
+    renderOrganLabels();
+    addBubble('ai', `3D body model loaded! I can now visualize organ health in real-time. Currently monitoring ${Object.keys(organModels).length} organs. Your heart and pancreas need attention based on current biometrics.`);
+  }
+}
+
+// ================================================================
+// DEMO MODE — Procedural body without GLBs
+// ================================================================
+function loadDemoMode() {
+  demoMode = true;
+  document.getElementById('fileOverlay').style.display = 'none';
+  buildDemoBody();
+  addBubble('ai', "Demo mode active — showing procedural 3D body twin. Load your GLB files for the full anatomical model with real organ geometries!");
+}
+
+function buildDemoBody() {
+  const group = new THREE.Group();
+
+  function mat(col, em, op) {
+    return new THREE.MeshStandardMaterial({
+      color:col, emissive:em, emissiveIntensity:0.7,
+      transparent:true, opacity:op||0.85,
+      roughness:0.2, metalness:0.45
+    });
+  }
+  function wireMat(col) {
+    return new THREE.MeshBasicMaterial({ color:col, wireframe:true, transparent:true, opacity:0.06 });
+  }
+
+  const BM = 0x0a2540, EM = 0x003366;
+
+  // Head
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.18,24,24), mat(BM,EM));
+  head.position.set(0,1.2,0);
+  group.add(head);
+  group.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(0.19,12,12), wireMat(0x00E5FF)), {position: head.position.clone()}));
+
+  // Neck
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.07,0.14,14), mat(BM,EM));
+  neck.position.set(0,1.01,0);
+  group.add(neck);
+
+  // Torso
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.21,0.17,0.62,20), mat(BM,EM));
+  torso.position.set(0,0.65,0);
+  group.add(torso);
+  group.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.18,0.63,14), wireMat(0x00E5FF)), {position: torso.position.clone()}));
+
+  // Hips
+  const hips = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.16,0.22,16), mat(BM,EM));
+  hips.position.set(0,0.28,0);
+  group.add(hips);
+
+  // Arms
+  [-1,1].forEach(s => {
+    const uArm = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.045,0.34,10), mat(BM,EM));
+    uArm.position.set(s*0.33,0.72,0);
+    uArm.rotation.z = s*0.35;
+    group.add(uArm);
+
+    const lArm = new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.032,0.32,10), mat(BM,EM));
+    lArm.position.set(s*0.52,0.5,0);
+    lArm.rotation.z = s*0.55;
+    group.add(lArm);
+
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.04,8,8), mat(BM,EM));
+    hand.position.set(s*0.67,0.32,0);
+    group.add(hand);
+  });
+
+  // Legs
+  [-1,1].forEach(s => {
+    const uLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.065,0.42,12), mat(BM,EM));
+    uLeg.position.set(s*0.1,-0.08,0);
+    group.add(uLeg);
+
+    const lLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.045,0.40,12), mat(BM,EM));
+    lLeg.position.set(s*0.1,-0.55,0);
+    group.add(lLeg);
+
+    const foot = new THREE.Mesh(new THREE.SphereGeometry(0.065,10,10), mat(BM,EM));
+    foot.scale.set(1.3,0.55,1.8);
+    foot.position.set(s*0.1,-0.79,0.05);
+    group.add(foot);
+  });
+
+  bodyModel = group;
+  glbScene.add(group);
+
+  // Demo organs as glowing spheres
+  const DEMO_ORGANS = {
+    heart:  { pos:[-.04, 20, 0.12], r:0.080 },
+    kidney:  { pos:[ .12, 0.15, 0.08], r:0.045 },
+    pancreas: { pos:[-.08, 0.18, 0.1 ], r:0.04 },
+    brain:   { pos:[ 0,   1.21, 0.04], r:0.08 },
+    liver:  { pos:[ .1, 0.40, 0.1 ], r:0.065 },
+  };
+
+  for (const [key, cfg] of Object.entries(DEMO_ORGANS)) {
+    const status = getOrganStatus(key, currentMetrics);
+    const col = getStatusHex(status);
+    const geo = new THREE.SphereGeometry(cfg.r, 18, 18);
+    const orgMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(col).multiplyScalar(0.2),
+      emissive: new THREE.Color(col),
+      emissiveIntensity: 0.8,
+      transparent: true,
+      opacity: 0.9,
+      roughness:0.15,
+      metalness:0.3,
+    });
+    const mesh = new THREE.Mesh(geo, orgMat);
+    mesh.position.set(...cfg.pos);
+    group.add(mesh);
+    organMeshMap[key] = mesh;
+  }
+
+  renderOrganLabels();
+}
+
+// ================================================================
+// ORGAN COLOR UPDATE
+// ================================================================
+function updateOrganColors() {
+  for (const [key, mesh] of Object.entries(organMeshMap)) {
+    if (!mesh) continue;
+    const status = getOrganStatus(key, currentMetrics);
+    const col = getStatusHex(status);
+    mesh.traverse(obj => {
+      if (obj.isMesh && obj.material) {
+        obj.material.color = new THREE.Color(col).multiplyScalar(0.2);
+        obj.material.emissive = new THREE.Color(col);
+      }
+    });
+  }
+}
+
+// ================================================================
+// ORGAN LABEL PILLS (2D overlay)
+// ================================================================
+function renderOrganLabels() {
+  // We'll use a simple world-to-screen projection via raycasting / fixed positions
+  // Since we can't do real world-to-screen easily without RAF loop, 
+  // we place CSS labels at approximate 2D positions relative to the canvas
+  const wrap = document.getElementById('bodyCanvasWrap');
+  const labelsDiv = document.getElementById('organLabels');
+  labelsDiv.innerHTML = '';
+
+
+  for (const [key, cfg] of Object.entries(ORGAN_CONFIGS)) {
+    const status = getOrganStatus(key, currentMetrics);
+    const col = getStatusColor(status);
+    const pos = LABEL_POSITIONS_DEMO[key] || { left:'50%', top:'50%' };
+    const statusText = status==='ok'?'Optimal':status==='warn'?'Warning':'Critical';
+
+    const el = document.createElement('div');
+    el.className = 'organ-label';
+    el.style.left = pos.left;
+    el.style.top = pos.top;
+    el.innerHTML = `<div class="org-pill" style="color:${col};border-color:${col}30;background:rgba(6,9,16,.8)" onclick="showOrganDetail('${key}')">
+      <span class="org-dot" style="background:${col}"></span>${cfg.label}
+    </div>`;
+    labelsDiv.appendChild(el);
+  }
+}
+
+function showOrganDetail(key) {
+  const cfg = ORGAN_CONFIGS[key];
+  const status = getOrganStatus(key, currentMetrics);
+  const col = getStatusColor(status);
+  const statusText = status==='ok'?'✅ Optimal':status==='warn'?'⚠️ Warning':'🔴 Critical';
+  const val = currentMetrics[cfg.key];
+  const det = document.getElementById('organDetail');
+  document.getElementById('odTitle').textContent = cfg.glyph + ' ' + cfg.label;
+  document.getElementById('odTitle').style.color = col;
+  document.getElementById('odStatus').textContent = statusText;
+  document.getElementById('odStatus').style.color = col;
+
+  const msgs = {
+    heart: { ok:'Cardiovascular rhythm is stable. HR within optimal range.', warn:'Elevated heart rate detected. Linked to anxiety and poor sleep.', crit:'Heart rate critically elevated. Immediate consultation advised.' },
+    kidney: { ok:'Medication clearance functioning normally. Good adherence.', warn:'Inconsistent drug clearance due to missed doses.', crit:'Renal stress markers elevated. Irregular medication is the cause.' },
+    pancreas: { ok:'Sleep quality supports healthy insulin production.', warn:'Disrupted sleep is stressing circadian glucose patterns.', crit:'Critical sleep disruption causing metabolic stress.' },
+    brain: { ok:'Mood and sleep support healthy cognitive function.', warn:'Low mood indicates cognitive fatigue and decision avoidance.', crit:'Severe psychological distress. Counseling recommended.' },
+    liver: { ok:'Metformin is being processed efficiently by the liver.', warn:'Irregular medication creates inconsistent hepatic metabolism.', crit:'Irregular dosing creating hepatic stress.' },
+  };
+
+  document.getElementById('odMetrics').innerHTML = `
+    <div class="od-metric"><div class="od-metric-label">${cfg.metric}</div><div class="od-metric-val" style="color:${col}">${val}<span style="font-size:11px;color:var(--muted)"> ${cfg.unit}</span></div></div>
+    <div class="od-metric"><div class="od-metric-label">Status</div><div class="od-metric-val" style="color:${col};font-size:13px">${statusText}</div></div>
+    <div style="grid-column:1/-1;font-size:11px;color:var(--subtle);line-height:1.6;padding-top:4px">${msgs[key]?.[status]||'Monitoring active.'}</div>`;
+  det.style.display = 'block';
+}
+
+// ================================================================
+// DERIVE SCORE
+// ================================================================
+function derive(s) {
+  s = Math.max(0, Math.min(100, Math.round(s)));
+  let status, color, mode;
+  if (s >= 80)      { status='Optimal';   color='#00FFB2'; mode='optimal'; }
+  else if (s >= 60) { status='At Risk';   color='#FFB020'; mode='atrisk';  }
+  else if (s >= 40) { status='High Risk'; color='#FF7020'; mode='higrisk'; }
+  else              { status='Critical';  color='#FF3B3B'; mode='critical';}
+  return { s, status, color, mode, risk: Math.max(10, Math.min(99, 100 - s*0.72 + 5)) };
+}
+
+// ================================================================
+// COMPUTE
+// ================================================================
+function computeFromInputs() {
+  const sleep  = parseFloat(document.getElementById('inp_sleep').value) || 62;
+  const steps  = parseFloat(document.getElementById('inp_steps').value) || 4300;
+  const anxiety= parseFloat(document.getElementById('inp_anxiety').value) || 55;
+  const mood   = parseFloat(document.getElementById('inp_mood').value) || 48;
+  const med    = parseFloat(document.getElementById('inp_med').value) || 72;
+  const hr     = parseFloat(document.getElementById('inp_hr').value) || 78;
+  currentMetrics = { sleep, steps, anxiety, mood, med, hr };
+
+  const stepsNorm = Math.min(steps/100, 100);
+  const hrScore   = Math.max(0, 100 - Math.abs(hr-65)*1.5);
+  const ns = Math.round(sleep*.30 + stepsNorm*.15 + (100-anxiety)*.15 + mood*.20 + med*.15 + hrScore*.05);
+
+  updateAll(Math.min(100, Math.max(0, ns)));
+  updateOrganColors();
+  renderOrganLabels();
+  addBubble('ai', `Dashboard updated. Stability: ${ns}/100. ${derive(ns).mode==='critical'?"I'm concerned — please reach out to your caregiver.":derive(ns).mode==='optimal'?"Great metrics! Keep this up.":"Organ monitoring shows some areas need attention."}`);
+}
+
+function loadPreset(name) {
+  const p = PRESETS[name];
+  document.getElementById('inp_sleep').value = p.sleep;
+  document.getElementById('inp_steps').value = p.steps;
+  document.getElementById('inp_anxiety').value = p.anxiety;
+  document.getElementById('inp_mood').value = p.mood;
+  document.getElementById('inp_med').value = p.med;
+  document.getElementById('inp_hr').value = p.hr;
+  computeFromInputs();
+}
+
+// ================================================================
+// FORECAST CHART
+// ================================================================
+const FC_LABELS = { 7:['T','D1','D2','D3','D4','D5','D7'], 14:['T','D3','D5','D7','D10','D12','D14'], 30:['T','D5','D10','D15','D20','D25','D30'] };
+
+function buildForecast(s, days) {
+  const labels = FC_LABELS[days]||FC_LABELS[14];
+  const d = (100-s)/100;
+  return {
+    labels,
+    pred: labels.map((_,i) => Math.round(Math.max(s - i*d*8 - i*1.2, 2))),
+    opt:  labels.map((_,i) => Math.round(Math.min(s + i*(1-d)*3, 97))),
+  };
+}
+
+function toggleWindow() {
+  const opts=[7,14,30]; const idx=opts.indexOf(windowDays);
+  windowDays=opts[(idx+1)%opts.length];
+  document.getElementById('forecastPanel').querySelector('[onclick="toggleWindow()"]').textContent=windowDays+' Days ▾';
+  if (forecastChartObj) {
+    const fc=buildForecast(score,windowDays);
+    forecastChartObj.data.labels=fc.labels;
+    forecastChartObj.data.datasets[0].data=fc.pred;
+    forecastChartObj.data.datasets[1].data=fc.opt;
+    forecastChartObj.update();
+  }
+}
+
+function initForecast() {
+  const ctx=document.getElementById('forecastChart').getContext('2d');
+  const fc=buildForecast(68,14);
+  forecastChartObj=new Chart(ctx,{
+    type:'line',
+    data:{labels:fc.labels,datasets:[
+      {label:'Drift',data:fc.pred,borderColor:'#FF3B3B',borderWidth:1.8,borderDash:[5,3],pointRadius:3,pointBackgroundColor:'#FF3B3B',pointBorderColor:'transparent',tension:.35,fill:false},
+      {label:'Optimal',data:fc.opt,borderColor:'#00E5FF',borderWidth:1.8,pointRadius:3,pointBackgroundColor:'#00E5FF',pointBorderColor:'transparent',tension:.35,fill:{target:'origin',above:'rgba(0,229,255,.04)'}},
+    ]},
+    options:{responsive:true,maintainAspectRatio:true,animation:{duration:600},
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#0c1220',borderColor:'#1a2f50',borderWidth:1,titleColor:'#d8e4f0',bodyColor:'#5a7898',padding:8}},
+      scales:{
+        x:{ticks:{color:'#3a5272',font:{size:9}},grid:{color:'rgba(18,33,58,.6)',lineWidth:.5},border:{color:'transparent'}},
+        y:{min:0,max:100,ticks:{color:'#3a5272',font:{size:9},stepSize:25},grid:{color:'rgba(18,33,58,.6)',lineWidth:.5},border:{color:'transparent'}},
+      },
+    },
+  });
+}
+
+// ================================================================
+// VITALS
+// ================================================================
+function renderVitals() {
+  const vitals=[
+    { icon:'❤️', bg:'rgba(255,59,59,.12)', name:'Resting Heart Rate', val:currentMetrics.hr, unit:'bpm', ch:currentMetrics.hr>80?`↑ ${currentMetrics.hr-72} from baseline`:'Within range', dir:currentMetrics.hr>80?'dn':'up'},
+    { icon:'🌙', bg:'rgba(100,50,200,.15)', name:'Sleep Quality', val:currentMetrics.sleep, unit:'%', ch:currentMetrics.sleep<60?`↓ ${Math.round(70-currentMetrics.sleep)}% below baseline`:'↑ Good', dir:currentMetrics.sleep<60?'dn':'up'},
+    { icon:'🏃', bg:'rgba(0,255,178,.08)', name:'Activity Level', val:currentMetrics.steps.toLocaleString(), unit:'steps', ch:currentMetrics.steps<5000?'Below daily goal':'On track', dir:currentMetrics.steps<5000?'dn':'up'},
+    { icon:'😊', bg:'rgba(255,176,32,.1)', name:'Mood Score', val:currentMetrics.mood, unit:'%', ch:currentMetrics.mood<55?'Elevated distress':'Stable', dir:currentMetrics.mood<55?'dn':'up'},
+    { icon:'💊', bg:'rgba(0,229,255,.08)', name:'Medication Adh.', val:currentMetrics.med, unit:'%', ch:currentMetrics.med<75?'Missed doses':'Good', dir:currentMetrics.med<75?'dn':'up'},
+  ];
+  document.getElementById('vitalsContainer').innerHTML=vitals.map(v=>`
+    <div class="vital-row">
+      <div class="vital-icon" style="background:${v.bg}">${v.icon}</div>
+      <div class="vital-info"><div class="vital-name">${v.name}</div><div class="vital-change ${v.dir}">${v.ch}</div></div>
+      <div class="vital-num">${v.val}<span class="vital-unit"> ${v.unit}</span></div>
+    </div>`).join('');
+}
+
+// ================================================================
+// ALERTS
+// ================================================================
+function renderAlerts(d) {
+  const rows=[
+    { dt:'10:32 AM',type:'At Risk Alert',sev:'critical',rec:'Jane Johnson',st:'Sent',notes:'Score below 70'},
+    { dt:'09:47 AM',type:'Medication Missed',sev:'warning',rec:'Dr. Patel',st:'Acknowledged',notes:'Evening dose — 2nd day'},
+    { dt:'07:15 AM',type:'Sleep Anomaly',sev:'warning',rec:'Jane Johnson',st:'Sent',notes:'Sleep < 50%'},
+  ];
+  if (d.s<40) rows.unshift({dt:'Just now',type:'CRITICAL DRIFT',sev:'critical',rec:'Emergency Protocol',st:'Pending',notes:'Immediate intervention needed'});
+  const stC=s=>s==='Sent'?'s-sent':s==='Acknowledged'?'s-ack':'';
+  document.getElementById('alertsBody').innerHTML=rows.map(r=>`
+    <tr><td>${r.dt}</td><td><span class="alert-badge ${r.sev}">${r.sev==='critical'?'⚠':'△'} ${r.type}</span></td>
+    <td>${r.rec}</td><td><span class="${stC(r.st)}">${r.st}</span></td><td>${r.notes}</td></tr>`).join('');
+}
+
+// ================================================================
+// CHAT
+// ================================================================
+const AI_POOL={
+  optimal:["Your vitals look excellent! Organs are showing green across the board.","Great adherence! Sleep and medication patterns are perfectly aligned.","Zero drift detected. Your 3D twin looks healthy — keep it up!"],
+  atrisk:["I noticed your sleep has been lower and your pancreas indicator is amber. Want to talk?","Your organ map shows kidney and heart warnings. Shifting Metformin timing could help.","Biopsychosocial drift detected. Shall I notify your caregiver?"],
+  higrisk:["Multiple organ indicators are in the warning zone. Let's adjust your plan.","High abandonment risk. Your heart and pancreas need attention — a dose-timing change could reverse this.","Significant drift. Your caregiver has been notified. Would you like to connect with Dr. Patel?"],
+  critical:["Sarah, I'm genuinely concerned. All organ indicators are red. You don't have to manage this alone.","Critical drift across all biomarkers. Caregiver alerted. Let's take one step at a time.","I can see things have been really hard. What feels manageable right now?"],
+};
+function getAI(mode){const p=AI_POOL[mode]||AI_POOL.atrisk;return p[Math.floor(Math.random()*p.length)];}
+
+function addBubble(role,text){
+  const msgs=document.getElementById('chatMessages');
+  const el=document.createElement('div');
+  el.className=`chat-msg ${role}`;
+  const now=new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  if (role==='ai'){
+    el.innerHTML=`<div class="ai-avatar">✦</div><div><div class="bubble bubble-ai">${text}<div class="bubble-time">${now}</div></div></div>`;
+  } else {
+    el.innerHTML=`<div><div class="bubble bubble-user">${text}<div class="bubble-time">${now} ✓✓</div></div></div>`;
+  }
+  msgs.appendChild(el);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function sendChat(){
+  const input=document.getElementById('chatInput');
+  const text=input.value.trim();
+  if (!text) return;
+  addBubble('user',text); input.value='';
+  const typing=document.createElement('div');
+  typing.className='chat-msg ai';typing.id='typingEl';
+  typing.innerHTML=`<div class="ai-avatar">✦</div><div class="bubble bubble-ai"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  document.getElementById('chatMessages').appendChild(typing);
+  document.getElementById('chatMessages').scrollTop=99999;
+  setTimeout(()=>{const el=document.getElementById('typingEl');if(el)el.remove();addBubble('ai',getAI(derive(score).mode));},700+Math.random()*500);
+}
+
+function focusChatInput(){document.getElementById('chatInput').focus();}
+
+// ================================================================
+// MODAL
+// ================================================================
+function openModal(title,icon,body){
+  document.getElementById('modalTitle').textContent=title;
+  document.getElementById('modalIcon').textContent=icon;
+  document.getElementById('modalBody').innerHTML=body.split('\n').map(l=>`<p style="margin-bottom:4px">${l}</p>`).join('');
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))closeModal();});
+
+// ================================================================
+// MASTER UPDATE
+// ================================================================
+function updateAll(s) {
+  score=Math.max(0,Math.min(100,Math.round(s)));
+  const d=derive(score);
+  document.getElementById('kpiHealth').textContent=d.status;
+  document.getElementById('kpiRisk').textContent=`${d.s<60?'High':'Moderate'} (${d.risk}%)`;
+  document.getElementById('kpiIntv').textContent=d.s<60?'Active':d.s<80?'Pending':'Closed';
+  document.getElementById('scScore').textContent=d.s;
+  document.getElementById('scScore').style.color=d.color;
+  document.getElementById('scStatus').textContent=d.s>=80?'✓ Optimal':d.s>=60?'⚠ At Risk':d.s>=40?'⚠ High Risk':'✖ Critical';
+  document.getElementById('scStatus').style.color=d.color;
+  document.getElementById('scChange').textContent=d.s>=80?'↑ Improving':` ↓ ${Math.round((100-d.s)*.15)} pts from last 7 days`;
+  const sc=document.getElementById('scCard');
+  sc.style.background=d.color+'08';sc.style.borderColor=d.color+'25';
+  if (forecastChartObj){
+    const fc=buildForecast(d.s,windowDays);
+    forecastChartObj.data.labels=fc.labels;
+    forecastChartObj.data.datasets[0].data=fc.pred;
+    forecastChartObj.data.datasets[1].data=fc.opt;
+    forecastChartObj.update('none');
+    document.getElementById('riskLabel').textContent=d.s>=80?'✓ Low Risk — Healthy Trajectory':d.s>=60?`⚠ Moderate Risk in ${windowDays} Days`:`⚠ High Risk of Abandonment in ${windowDays} Days`;
+    document.getElementById('riskLabel').style.color=d.color;
+  }
+  renderVitals();
+  renderAlerts(d);
+}
+
+function adoptStrategy(){
+  const ns=Math.min(score+14,100);
+  currentMetrics.med=Math.min(currentMetrics.med+15,99);
+  currentMetrics.sleep=Math.min(currentMetrics.sleep+10,99);
+  document.getElementById('inp_med').value=currentMetrics.med;
+  document.getElementById('inp_sleep').value=currentMetrics.sleep;
+  updateAll(ns);
+  updateOrganColors();
+  renderOrganLabels();
+  setTimeout(()=>addBubble('ai','Strategy adopted! Metformin rescheduled to 8:30 PM. Your organ health indicators are already improving! 💙'),400);
+}
+
+// ================================================================
+// LIVE SIMULATION — auto-update metrics every 5s
+// ================================================================
+function simulateLiveData() {
+  // Tiny drift/fluctuation to make it feel live
+  const jitter = (val, maxDelta, min, max) => Math.max(min, Math.min(max, val + (Math.random()-0.5)*maxDelta*2));
+  currentMetrics.hr     = jitter(currentMetrics.hr,     0.8, 55, 120);
+  currentMetrics.sleep  = jitter(currentMetrics.sleep,  0.5, 10, 100);
+  currentMetrics.steps  = Math.round(jitter(currentMetrics.steps, 80, 0, 15000));
+  currentMetrics.anxiety= jitter(currentMetrics.anxiety,0.6, 5, 95);
+  currentMetrics.mood   = jitter(currentMetrics.mood,   0.5, 5, 95);
+  currentMetrics.med    = Math.min(100, Math.max(0, currentMetrics.med));
+
+  // Sync inputs
+  document.getElementById('inp_sleep').value  = Math.round(currentMetrics.sleep);
+  document.getElementById('inp_steps').value  = Math.round(currentMetrics.steps);
+  document.getElementById('inp_anxiety').value= Math.round(currentMetrics.anxiety);
+  document.getElementById('inp_mood').value   = Math.round(currentMetrics.mood);
+  document.getElementById('inp_hr').value     = Math.round(currentMetrics.hr);
+
+  // Recompute
+  const stepsNorm=Math.min(currentMetrics.steps/100,100);
+  const hrScore=Math.max(0,100-Math.abs(currentMetrics.hr-65)*1.5);
+  const ns=Math.round(currentMetrics.sleep*.30+stepsNorm*.15+(100-currentMetrics.anxiety)*.15+currentMetrics.mood*.20+currentMetrics.med*.15+hrScore*.05);
+  score=Math.min(100,Math.max(0,ns));
+  updateAll(score);
+  updateOrganColors();
+  renderOrganLabels();
+  document.getElementById('engineTime').textContent='just now';
+}
+
+// ================================================================
+// BOOT
+// ================================================================
+window.addEventListener('load', () => {
+  initGLBScene();
+  initForecast();
+  updateAll(68);
+  renderVitals();
+  addBubble('ai',"I noticed your sleep has been lower than usual and stress levels are elevated. Your pancreas and heart indicators need attention.");
+  addBubble('user',"I've been forgetting my evening meds. I feel tired all the time.");
+  addBubble('ai',"I understand, Sarah. Shifting Metformin to 8:30 PM could reduce evening fatigue and improve your organ health scores significantly. Load your GLB body files or click Demo Mode to see your full 3D anatomical twin!");
+
+  // Live simulation every 5 seconds
+  setInterval(simulateLiveData, 5000);
+  window.addEventListener('resize', () => { resizeGLB(); renderOrganLabels(); });
+});
+</script>
+</body>
+</html>
